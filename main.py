@@ -166,21 +166,35 @@ def cad_aluno():
 # Buscar aluno por matrícula (AJAX)
 @app.route('/buscar_aluno')
 def buscar_aluno():
-    matricula = request.args.get('matricula_aluno')
-    if not matricula:
-        return jsonify({
-            'encontrado': False,
-            'mensagem': 'Matrícula não informada'
-        }), 400
-
     try:
-        # Forma CORRETA para Flask-MySQLdb
+        # Verificar se a matrícula foi informada
+        matricula = request.args.get('matricula_aluno')
+        print(f"Matrícula recebida: {matricula}")  # Debug
+        
+        if not matricula:
+            return jsonify({
+                'encontrado': False,
+                'erro': True,
+                'mensagem': 'Matrícula não informada'
+            }), 400
+
+        # Verificar conexão com o banco
+        if not mysql.connection:
+            print("Erro: Conexão com MySQL não estabelecida")
+            return jsonify({
+                'encontrado': False,
+                'erro': True,
+                'mensagem': 'Erro de conexão com o banco de dados'
+            }), 500
+
+        # Executar consulta
         cursor = mysql.connection.cursor()
+        print("Cursor criado com sucesso")  # Debug
         
         query = """
             SELECT 
                 id_aluno, matricula_aluno, nome_aluno,
-                DATE_FORMAT(dt_nascimento, '%%Y-%%m-%%d') as dt_nascimento,
+                DATE_FORMAT(dt_nascimento, '%Y-%m-%d') as dt_nascimento,
                 genero, endereco_aluno, tipo_responsavel,
                 nome_pai, nome_mae, patologia, tipo_educacao,
                 contato, nome_escola, turma, professor_regente,
@@ -189,113 +203,148 @@ def buscar_aluno():
             FROM tbl_cad_alunos 
             WHERE matricula_aluno = %s
         """
+        
+        print(f"Executando query: {query}")  # Debug
+        print(f"Parâmetro: {matricula}")  # Debug
+        
         cursor.execute(query, (matricula,))
         
-        # Converter para dicionário manualmente
+        # Obter nomes das colunas
         columns = [col[0] for col in cursor.description]
+        print(f"Colunas encontradas: {columns}")  # Debug
+        
+        # Buscar resultado
         aluno = cursor.fetchone()
+        print(f"Resultado da consulta: {aluno}")  # Debug
+        
         cursor.close()
+        print("Cursor fechado")  # Debug
         
         if aluno:
+            # Converter para dicionário
             aluno_dict = dict(zip(columns, aluno))
-            print(f"Dados encontrados: {aluno_dict}")  # Debug
+            print(f"Aluno encontrado: {aluno_dict}")  # Debug
+            
             return jsonify({
                 'encontrado': True,
-                'aluno': aluno_dict
+                'erro': False,
+                'aluno': aluno_dict,
+                'mensagem': 'Aluno encontrado com sucesso'
             })
         else:
+            print("Nenhum aluno encontrado")  # Debug
             return jsonify({
                 'encontrado': False,
+                'erro': False,
                 'mensagem': f'Aluno com matrícula {matricula} não encontrado'
             })
 
-    except Exception as e:
-        print(f"Erro na busca: {str(e)}")  # Debug
+    except mysql.connection.Error as db_error:
+        print(f"Erro específico do MySQL: {str(db_error)}")
+        print(f"Código do erro: {db_error.args[0] if db_error.args else 'N/A'}")
+        
+        # Fechar cursor se estiver aberto
+        try:
+            if 'cursor' in locals():
+                cursor.close()
+        except:
+            pass
+            
         return jsonify({
             'encontrado': False,
-            'mensagem': 'Erro interno',
+            'erro': True,
+            'mensagem': 'Erro no banco de dados',
+            'detalhes': f'MySQL Error: {str(db_error)}'
+        }), 500
+        
+    except AttributeError as attr_error:
+        print(f"Erro de atributo (possível problema com mysql.connection): {str(attr_error)}")
+        return jsonify({
+            'encontrado': False,
+            'erro': True,
+            'mensagem': 'Erro de configuração do banco de dados',
+            'detalhes': f'AttributeError: {str(attr_error)}'
+        }), 500
+        
+    except Exception as e:
+        print(f"Erro geral não capturado: {str(e)}")
+        print(f"Tipo do erro: {type(e).__name__}")
+        import traceback
+        print(f"Traceback completo: {traceback.format_exc()}")
+        
+        # Fechar cursor se estiver aberto
+        try:
+            if 'cursor' in locals():
+                cursor.close()
+        except:
+            pass
+            
+        return jsonify({
+            'encontrado': False,
+            'erro': True,
+            'mensagem': 'Erro interno do servidor',
             'detalhes': str(e)
         }), 500
 
-    # Atualizar aluno (AJAX)
-@app.route('/atualizar_aluno', methods=['POST'])
-def atualizar_aluno():
+
+# Rota adicional para testar a conexão com o banco
+@app.route('/test_db')
+def test_db():
+    """Rota para testar a conexão com o banco de dados"""
     try:
-        # Obter dados do formulário
-        dados = request.form.to_dict()
-        matricula = dados.get('matricula_aluno')
+        cursor = mysql.connection.cursor()
+        cursor.execute("SELECT 1")
+        result = cursor.fetchone()
+        cursor.close()
         
-        if not matricula:
-            return jsonify({'sucesso': False, 'mensagem': 'Matrícula não fornecida'}), 400
-
-        # Campos que podem ser atualizados
-        campos_permitidos = [
-            'nome_aluno', 'dt_nascimento', 'genero', 'endereco_aluno',
-            'tipo_responsavel', 'nome_pai', 'nome_mae', 'patologia',
-            'tipo_educacao', 'contato', 'nome_escola', 'turma',
-            'professor_regente', 'profissional_AEE', 'cod_cid',
-            'equipe_multidisciplinar', 'status_aluno', 'observacoes'
-        ]
-
-        # Preparar dados para atualização
-        dados_atualizacao = {}
-        for campo in campos_permitidos:
-            if campo in dados:
-                dados_atualizacao[campo] = dados[campo] if dados[campo] != '' else None
-
-        # Construir a query
-        set_clause = ', '.join([f"{k} = %s" for k in dados_atualizacao.keys()])
-        valores = list(dados_atualizacao.values())
-        valores.append(matricula)
-
-        if not set_clause:
-            return jsonify({'sucesso': False, 'mensagem': 'Nenhum dado para atualizar'}), 400
-
-        # Executar a atualização
-        cur = mysql.connection.cursor()
-        cur.execute(
-            f"UPDATE tbl_cad_alunos SET {set_clause} WHERE matricula_aluno = %s",
-            valores
-        )
-        mysql.connection.commit()
-
-        return jsonify({'sucesso': True, 'mensagem': 'Dados do aluno atualizados com sucesso!'})
-
+        return jsonify({
+            'status': 'success',
+            'message': 'Conexão com banco OK',
+            'test_result': result[0]
+        })
     except Exception as e:
-        mysql.connection.rollback()
-        return jsonify({'sucesso': False, 'mensagem': f'Erro ao atualizar aluno: {str(e)}'}), 500
-    finally:
-        if 'cur' in locals():
-            cur.close()
+        return jsonify({
+            'status': 'error',
+            'message': f'Erro na conexão: {str(e)}'
+        }), 500
 
 
-@app.route('/teste_conexao')
-def teste_conexao():
+# Rota para listar todas as tabelas (debug)
+@app.route('/list_tables')
+def list_tables():
+    """Rota para listar tabelas do banco (apenas para debug)"""
     try:
         cursor = mysql.connection.cursor()
         cursor.execute("SHOW TABLES")
         tables = cursor.fetchall()
         cursor.close()
+        
         return jsonify({
-            'status': 'Conexão OK',
-            'tables': tables
+            'tables': [table[0] for table in tables]
         })
     except Exception as e:
         return jsonify({
-            'status': 'Erro na conexão',
-            'erro': str(e)
+            'error': str(e)
         }), 500
 
-@app.route('/verificar_matricula/<matricula>')
-def verificar_matricula(matricula):
-    cursor = mysql.connection.cursor()
-    cursor.execute("SELECT * FROM tbl_cad_alunos WHERE matricula_aluno = %s", (matricula,))
-    result = cursor.fetchone()
-    cursor.close()
-    return jsonify({
-        'existe': bool(result),
-        'dados': result
-    })
+
+# Rota para verificar estrutura da tabela
+@app.route('/describe_table')
+def describe_table():
+    """Rota para verificar estrutura da tabela tbl_cad_alunos"""
+    try:
+        cursor = mysql.connection.cursor()
+        cursor.execute("DESCRIBE tbl_cad_alunos")
+        columns = cursor.fetchall()
+        cursor.close()
+        
+        return jsonify({
+            'columns': [{'field': col[0], 'type': col[1], 'null': col[2], 'key': col[3]} for col in columns]
+        })
+    except Exception as e:
+        return jsonify({
+            'error': str(e)
+        }), 500
 
 @app.route('/saiba_mais', methods=['GET'])
 def saiba_mais():
@@ -309,11 +358,18 @@ def quest_pei():
     cur.close()
 
     if request.method == 'POST':
+        cur = None  # Inicializa cursor como None
         try:
             aluno_id = request.form.get('aluno_id')
+            
+            # Validação básica
+            if not aluno_id:
+                flash('Por favor, selecione um aluno.', 'danger')
+                return render_template('quest_pei.html', alunos=alunos)
+
+            cur = mysql.connection.cursor()
 
             # 1 - Acompanhamento e avaliação
-            cur = mysql.connection.cursor()
             cur.execute("""
                 INSERT INTO tbl_acompanhamento_avaliacao (
                     aluno_id, frequencia_reavaliacao, responsavel_acompanhamento, reunioes
@@ -380,20 +436,25 @@ def quest_pei():
             ))
 
             # 6 - Necessidade de Apoio
+            # Tratamento especial para campo múltiplo
+            apoios = request.form.getlist('apoios')  # Use getlist para select múltiplo
+            apoios_str = ','.join(apoios) if apoios else None
+            
             cur.execute("""
                 INSERT INTO tbl_necessidades_apoio_pei (
                     aluno_id, apoios, equipamentos
                 ) VALUES (%s, %s, %s)
             """, (
                 aluno_id,
-                request.form.get('apoios'),
+                apoios_str,
                 request.form.get('equipamentos')
             ))
 
             # 7 - Objetivos PEI
             cur.execute("""
                 INSERT INTO tbl_objetivos_pei (
-                    aluno_id, objetivo_cognitivo, objetivo_linguagem, objetivo_autonomia, objetivo_interacao, objetivo_motor, objetivo_comportamento
+                    aluno_id, objetivo_cognitivo, objetivo_linguagem, objetivo_autonomia, 
+                    objetivo_interacao, objetivo_motor, objetivo_comportamento
                 ) VALUES (%s, %s, %s, %s, %s, %s, %s)
             """, (
                 aluno_id,
@@ -408,7 +469,8 @@ def quest_pei():
             # 8 - Outras Informações
             cur.execute("""
                 INSERT INTO tbl_outras_informacoes_pei (
-                    aluno_id, historico_escolar, consideracoes_familia, observacoes_professores, comentarios_equipe
+                    aluno_id, historico_escolar, consideracoes_familia, 
+                    observacoes_professores, comentarios_equipe
                 ) VALUES (%s, %s, %s, %s, %s)
             """, (
                 aluno_id,
@@ -418,14 +480,18 @@ def quest_pei():
                 request.form.get('comentarios_equipe')
             ))
 
+            # Commit das transações
             mysql.connection.commit()
             cur.close()
             flash('Questionário PEI salvo com sucesso!', 'success')
             return redirect(url_for('quest_pei'))
+            
         except Exception as e:
+            # Rollback em caso de erro
             mysql.connection.rollback()
             if cur:
                 cur.close()
+            print(f"Erro detalhado: {str(e)}")  # Para debug
             flash(f'Erro ao salvar: {str(e)}', 'danger')
             return render_template('quest_pei.html', alunos=alunos)
 
@@ -569,7 +635,6 @@ FROM db_funcae.vw_quest_pei""")
     )
     
 
-
 @app.route('/alunos_ativos_excel', methods=['GET'])
 def alunos_ativos_excel():
     cur = mysql.connection.cursor()
@@ -595,34 +660,168 @@ def alunos_ativos_excel():
         download_name='alunos_ativos.xlsx'
     )
 
-from flask_mysqldb import MySQL
-import MySQLdb.cursors
+
+
+from datetime import datetime
 
 @app.route('/baixa_alunos', methods=['GET'])
 def baixa_alunos():
     cur = mysql.connection.cursor(MySQLdb.cursors.DictCursor)
-    cur.execute("SELECT * FROM vw_alunos_baixados WHERE status_aluno='Ativo'")
+    # Corrigido: buscar todos os alunos, não apenas os da view de baixados
+    cur.execute("""
+        SELECT id_aluno, matricula_aluno, nome_aluno, dt_nascimento, 
+               idade, patologia, status_aluno 
+        FROM tbl_cad_alunos 
+        ORDER BY nome_aluno
+    """)
     alunos = cur.fetchall()
     cur.close()
     return render_template('baixa_alunos.html', alunos=alunos)
 
-
-@app.route('/baixar_alunos/<int:id_aluno>', methods=['POST'])
+@app.route('/baixar_aluno/<int:id_aluno>', methods=['POST'])
 def baixar_aluno(id_aluno):
-    cur = mysql.connection.cursor(MySQLdb.cursors.DictCursor)
-    cur.execute("UPDATE tbl_cad_alunos SET status_aluno='Inativo' WHERE id_aluno=%s", (id_aluno,))
-    mysql.connection.commit()
-    cur.close()
-    return redirect('/baixa_alunos')
+    try:
+        motivo = request.form.get('motivo', '')
+        observacoes = request.form.get('observacoes', '')
+        data_baixa = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+        
+        cur = mysql.connection.cursor()
+        
+        # 1. Atualizar status do aluno para "Inativo"
+        cur.execute("""
+            UPDATE tbl_cad_alunos 
+            SET status_aluno = 'Inativo' 
+            WHERE id_aluno = %s
+        """, (id_aluno,))
+        
+        # 2. Inserir registro na tabela de baixas (se existir)
+        # Se você não tem essa tabela, pode criar ou comentar esta parte
+        try:
+            cur.execute("""
+                INSERT INTO tbl_baixas_alunos 
+                (aluno_id, motivo_baixa, observacoes, data_baixa, usuario_baixa) 
+                VALUES (%s, %s, %s, %s, %s)
+            """, (id_aluno, motivo, observacoes, data_baixa, session.get('user_id', 'Sistema')))
+        except Exception as e:
+            # Se a tabela não existir, apenas registra no log
+            print(f"Aviso: Tabela de baixas não encontrada: {e}")
+        
+        mysql.connection.commit()
+        cur.close()
+        
+        flash('Aluno dado como baixa com sucesso!', 'success')
+        
+    except Exception as e:
+        mysql.connection.rollback()
+        if cur:
+            cur.close()
+        flash(f'Erro ao dar baixa no aluno: {str(e)}', 'danger')
+    
+    return redirect(url_for('baixa_alunos'))
 
+@app.route('/reativar_aluno/<int:id_aluno>', methods=['POST'])
+def reativar_aluno(id_aluno):
+    try:
+        cur = mysql.connection.cursor()
+        
+        # Reativar aluno
+        cur.execute("""
+            UPDATE tbl_cad_alunos 
+            SET status_aluno = 'Ativo' 
+            WHERE id_aluno = %s
+        """, (id_aluno,))
+        
+        # Registrar reativação (opcional)
+        try:
+            cur.execute("""
+                INSERT INTO tbl_baixas_alunos 
+                (aluno_id, motivo_baixa, observacoes, data_baixa, usuario_baixa) 
+                VALUES (%s, %s, %s, %s, %s)
+            """, (id_aluno, 'REATIVAÇÃO', 'Aluno reativado no sistema', 
+                  datetime.now().strftime('%Y-%m-%d %H:%M:%S'), 
+                  session.get('user_id', 'Sistema')))
+        except:
+            pass  # Se não tiver tabela de log, ignora
+        
+        mysql.connection.commit()
+        cur.close()
+        
+        flash('Aluno reativado com sucesso!', 'success')
+        
+    except Exception as e:
+        mysql.connection.rollback()
+        if cur:
+            cur.close()
+        flash(f'Erro ao reativar aluno: {str(e)}', 'danger')
+    
+    return redirect(url_for('baixa_alunos'))
 
-@app.route('/desfazer_baixa/<int:id_aluno>', methods=['POST'])
-def desfazer_baixa(id_aluno):
-    cur = mysql.connection.cursor(MySQLdb.cursors.DictCursor)
-    cur.execute("UPDATE tbl_cad_alunos SET status_aluno='Ativo' WHERE id_aluno=%s", (id_aluno,))
-    mysql.connection.commit()
-    cur.close()
-    return redirect('/baixa_alunos')
+@app.route('/baixa_lote', methods=['POST'])
+def baixa_lote():
+    try:
+        alunos_ids = request.form.getlist('alunos_ids')
+        
+        if not alunos_ids:
+            flash('Nenhum aluno selecionado!', 'warning')
+            return redirect(url_for('baixa_alunos'))
+        
+        cur = mysql.connection.cursor()
+        
+        # Baixa em lote
+        for aluno_id in alunos_ids:
+            cur.execute("""
+                UPDATE tbl_cad_alunos 
+                SET status_aluno = 'Inativo' 
+                WHERE id_aluno = %s AND status_aluno = 'Ativo'
+            """, (aluno_id,))
+            
+            # Log da baixa em lote
+            try:
+                cur.execute("""
+                    INSERT INTO tbl_baixas_alunos 
+                    (aluno_id, motivo_baixa, observacoes, data_baixa, usuario_baixa) 
+                    VALUES (%s, %s, %s, %s, %s)
+                """, (aluno_id, 'BAIXA EM LOTE', 'Baixa realizada em lote', 
+                      datetime.now().strftime('%Y-%m-%d %H:%M:%S'), 
+                      session.get('user_id', 'Sistema')))
+            except:
+                pass
+        
+        mysql.connection.commit()
+        cur.close()
+        
+        flash(f'{len(alunos_ids)} aluno(s) dado(s) como baixa com sucesso!', 'success')
+        
+    except Exception as e:
+        mysql.connection.rollback()
+        if cur:
+            cur.close()
+        flash(f'Erro na baixa em lote: {str(e)}', 'danger')
+    
+    return redirect(url_for('baixa_alunos'))
+
+# Rota adicional para criar tabela de log de baixas (opcional)
+@app.route('/criar_tabela_baixas')
+def criar_tabela_baixas():
+    """Rota para criar tabela de log de baixas - use apenas uma vez"""
+    try:
+        cur = mysql.connection.cursor()
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS tbl_baixas_alunos (
+                id_baixa INT AUTO_INCREMENT PRIMARY KEY,
+                aluno_id INT NOT NULL,
+                motivo_baixa VARCHAR(100),
+                observacoes TEXT,
+                data_baixa DATETIME,
+                usuario_baixa VARCHAR(50),
+                FOREIGN KEY (aluno_id) REFERENCES tbl_cad_alunos(id_aluno)
+            )
+        """)
+        mysql.connection.commit()
+        cur.close()
+        return "Tabela de baixas criada com sucesso!"
+    except Exception as e:
+        return f"Erro ao criar tabela: {str(e)}"
 
 
 @app.route('/quest_pedi', methods=['GET', 'POST'])
@@ -634,13 +833,10 @@ def quest_pedi():
 
     if request.method == 'POST':
         try:
-            id_aluno = request.form.get('aluno_id')
-            print("ID aluno:", id_aluno)
-            print("Form:", dict(request.form))
-
-            cur = mysql.connection.cursor()
+            aluno_id = request.form.get('aluno_id')
 
             # CUIDADO PESSOAL
+            cur = mysql.connection.cursor()
             cur.execute("""
                 INSERT INTO tbl_quest_pedi_cuidadopessoal (
                     alimentacao_talher, mastigacao, ingestao_liquidos, cortar_alimentos, recurso_comer,
@@ -671,7 +867,7 @@ def quest_pedi():
                 request.form.get('lavar_maos'),
                 request.form.get('supervisao_banheiro'),
                 request.form.get('observacoes'),
-                id_aluno
+                aluno_id
             ))
 
             # MOBILIDADE
@@ -692,7 +888,7 @@ def quest_pedi():
                 request.form.get('corre_pula'),
                 request.form.get('cadeira_rodas'),
                 request.form.get('observacoes_mobilidade'),
-                id_aluno
+                aluno_id
             ))
 
             # FUNÇÃO SOCIAL
@@ -720,7 +916,7 @@ def quest_pedi():
                 request.form.get('escolhe_roupas'),
                 request.form.get('demonstra_interesse'),
                 request.form.get('observacoes_fun_social'),
-                id_aluno
+                aluno_id
             ))
 
             mysql.connection.commit()
@@ -732,7 +928,6 @@ def quest_pedi():
             mysql.connection.rollback()
             if cur:
                 cur.close()
-            print("ERRO:", e)
             flash(f'Erro ao salvar: {str(e)}', 'danger')
             return render_template('quest_pedi.html', alunos=alunos)
 
