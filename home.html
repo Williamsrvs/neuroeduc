@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    </head>
+    <body>
+    
+</body>
+    <title>NeuroEduc</title>
+    <style>
+        * {
+            box-sizing: border-box;
+        }
+        body {
+            margin: 0;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            display: flex;
+            height: 100vh;
+            background-color: #f5f7fa;
+            color: #333;
+        }   
+        .sidebar {
+            background-color: #800000;
+            color: white;
+            width: 220px;
+            height: 100vh;
+            padding: 30px 10px 30px 10px;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            box-shadow: 2px 0 8px rgba(0,0,0,0.15);
+        }
+        .sidebar h2 {
+            margin: 0 0 24px 0;
+            font-weight: 700;
+            font-size: 22px;
+            letter-spacing: 2px;
+            border-bottom: 2px solid #b22222;
+            padding-bottom: 8px;
+        }
+        .sidebar .menu-cascata {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+        .sidebar .menu-btn {
+            display: flex;
+            align-items: center;
+            background: linear-gradient(90deg, #800000 70%, #b22222 100%);
+            color: #fff;
+            border: none;
+            border-radius: 6px;
+            padding: 8px 12px;
+            font-size: 15px;
+            margin: 0;
+            cursor: pointer;
+            transition: background 0.2s, transform 0.2s;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.10);
+            width: 100%;
+            text-align: left;
+            position: relative;
+        }
+        .sidebar .menu-btn:hover, .sidebar .menu-btn.active {
+            background: linear-gradient(90deg, #b22222 70%, #800000 100%);
+            transform: translateX(8px) scale(1.04);
+        }
+        .sidebar .menu-btn i {
+            margin-right: 8px;
+            font-size: 1.1em;
+        }
+        .sidebar .submenu {
+            display: none;
+            flex-direction: column;
+            gap: 4px;
+            margin-left: 18px;
+            margin-top: 2px;
+        }
+        .sidebar .menu-btn.open + .submenu {
+            display: flex;
+        }
+        .sidebar .submenu a {
+            background: #a94442;
+            color: #fff;
+            border-radius: 4px;
+            padding: 5px 10px;
+            font-size: 14px;
+            text-decoration: none;
+            margin-bottom: 2px;
+            transition: background 0.2s;
+        }
+        .sidebar .submenu a:hover {
+            background: #d9534f;
+        }
+        .footer-sidebar {
+            font-size: 13px;
+            opacity: 0.6;
+            text-align: center;
+            border-top: 1px solid #b22222;
+            padding-top: 10px;
+            user-select: none;
+        }
+        .content {
+            flex: 1;
+            padding: 40px 50px;
+            overflow-y: auto;
+        }
+        .content h1 {
+            font-weight: 700;
+            font-size: 32px;
+            margin-bottom: 20px;
+            color: #800000;
+        }
+        .content p {
+            font-size: 17px;
+            line-height: 1.6;
+            color: #555;
+        }
+        .dashboard-card {
+            background-color: #fff;
+            border-radius: 8px;
+            padding: 20px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+            margin-bottom: 20px;
+        }
+        .dashboard-card h3 {
+            color: #800000;
+            margin-top: 0;
+            margin-bottom: 15px;
+        }
+        .highlight {
+            color: #800000;
+            font-weight: bold;
+        }
+    </style>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons/font/bootstrap-icons.css">
+</head>
+<body>
+
+    <nav class="sidebar">   
+        <div>
+            <h2>NeuroEduc</h2>
+            <div class="menu-cascata">
+                <button class="menu-btn" onclick="toggleMenu(this)">
+                    <i class="bi bi-person-plus"></i> Cadastrar
+                </button>
+                <div class="submenu">
+                    <a href="/cad_aluno"><i class="bi bi-person"></i> Aluno</a>
+                    <a href="/cad_acesso"><i class="bi bi-person-badge"></i> Acesso</a>
+                </div>
+                <button class="menu-btn" onclick="toggleMenu(this)">
+                    <i class="bi bi-ui-checks"></i> Questionários
+                </button>
+                <div class="submenu">
+                    <a href="/quest_pei"><i class="bi bi-file-earmark-text"></i> PEI</a>
+                    <a href="/quest_pedi"><i class="bi bi-file-earmark-text"></i> PEDI</a>
+                    <a href="#"><i class="bi bi-file-earmark-text"></i> GUIDE</a>
+                </div>
+
+                <button class="menu-btn" onclick="toggleMenu(this)">
+                    <i class="bi bi-ui-checks"></i> Gerenciamento de Alunos
+                </button>
+                <div class="submenu">
+                    <a href="/baixar_alunos"><i class="bi bi-file-earmark-text"></i> Baixa de Alunos</a>
+                
+                </div>
+            
+                <button class="menu-btn" onclick="toggleMenu(this)">
+                    <i class="bi bi-bar-chart"></i> Relatórios
+                </button>
+                
+                <div class="submenu">
+                    <a href="/gerar_pdf_pei"><i class="bi bi-list"></i> Relatórios PEI</a>
+                    <a href="/pei_excel"><i class="bi bi-list"></i> Planilha Questionário PEI</a>
+                    <a href="{{ url_for('alunos_ativos_excel') }}" class="bi-bi-planilha text-list">
+                        <i class="bi bi-list"></i> Alunos Ativos
+                    </a>
+
+                </div>
+            </div>
+        </div>  
+        <div class="footer-sidebar">
+            WR Consultoria e Desenvolvimento
+        </div>  
+    </nav>
+
+    <main class="content">
+        <h1>Bem-vindo ao NeuroEduc</h1>
+        <p>Explore as funcionalidades do sistema para otimizar o acompanhamento e desenvolvimento dos alunos.</p>
+            <div class="text-end mb-3">
+            <button class="btn btn-danger right-section" onclick="location.href='/login  '">
+            <i class="bi bi-logout-plus"></i> Sair Sistema
+        </button>
+            </div>  
+
+        <section class="dashboard-cards">
+            <div class="dashboard-card">
+                <h3>Visão Geral</h3>
+                <p>Você tem <span class="highlight">{{ total_alunos }}</span> alunos cadastrados no sistema.</p>
+            </div>
+            <div class="dashboard-card">
+                <h3>Acesso Rápido</h3>
+                <p>Utilize os links na barra lateral para navegar entre as funcionalidades.</p>
+            </div>
+        </section>
+    </main>
+
+    <script>
+        // Cascata: abre/fecha submenus
+        function toggleMenu(btn) {
+            // Fecha todos os outros submenus
+            document.querySelectorAll('.menu-btn').forEach(function(b) {
+                if (b !== btn) b.classList.remove('open');
+            });
+            document.querySelectorAll('.submenu').forEach(function(sub) {
+                if (sub.previousElementSibling !== btn) sub.style.display = 'none';
+            });
+
+            // Abre/fecha submenu clicado
+            btn.classList.toggle('open');
+            let submenu = btn.nextElementSibling;
+            if (submenu && submenu.classList.contains('submenu')) {
+                submenu.style.display = submenu.style.display === 'flex' ? 'none' : 'flex';
+            }
+        }
+    </script>
+
+</body>
+</html>

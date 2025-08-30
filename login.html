@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Login - NeuroEduc</title>
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons/font/bootstrap-icons.css">
+
+<style>
+    body, html {
+    height: 100%;
+    margin: 0;
+    font-family: 'Segoe UI', sans-serif;
+    }
+
+    .login-container {
+    display: flex;
+    height: 100vh;
+    }
+
+    .form-section {
+    flex: 1;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    background-color: #ffffff;
+    padding: 40px;
+    }
+
+    .form-box {
+    width: 100%;
+    max-width: 400px;
+    
+    }
+
+    .form-box h2 {
+    font-weight: bold;
+    margin-bottom: 30px;
+    }
+
+    .form-control {
+    padding-left: 38px;
+    }
+
+    .input-icon {
+    position: absolute;
+    left: 10px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: #6c757d;
+    }
+
+    .input-group {
+    position: relative;
+    }
+
+    .right-section {
+    flex: 1;
+    background-color: #8ff1ed;
+    color: #800020(12, 0, 0);   
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    text-align: center;
+    padding: 30px;
+    }
+
+    .right-section img {
+    max-width: 60%;
+    margin-bottom: 20px;    
+    }
+
+    .right-section p {
+    font-size: 18px;
+    }
+
+    .btn-login {
+    background-color: #800020;
+    border: none;
+    color: white;
+    }
+
+    .btn-login:hover {
+    background-color: #66001a;
+    }
+
+    .form-footer {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.9rem;
+    }
+
+    .form-footer a {
+    text-decoration: none;
+    }
+
+    .create-account {
+    text-align: center;
+    margin-top: 20px;
+    font-size: 0.9rem;
+    }
+
+    .create-account a {
+    color: #800020;
+    text-decoration: none;
+    }
+
+    .create-account a:hover {
+    text-decoration: underline;
+    }
+</style>
+</head>
+
+<div class="login-container">
+<!-- Esquerda: Formulário -->
+<div class="form-section">
+    <div class="form-box">
+    <h2>Faça seu login</h2>
+    <body><img src="/static/imagem/logo.png" alt="">
+    <form action="/login" method="POST">
+        <div class="mb-3 input-group">  
+        <i class="bi bi-envelope input-icon"></i>
+        <input type="email" class="form-control" placeholder="seuemail@gmail.com" name="email" required>
+        </div>
+
+        <div class="mb-3 input-group">
+        <i class="bi bi-lock input-icon"></i>
+        <input type="password" class="form-control" placeholder="sua senha" name="senha" required>
+        </div>
+
+        <div class="form-footer mb-3">
+        <div>
+            <input type="checkbox" id="remember"> <label for="remember">Lembrar de mim</label>
+        </div>
+        <div><a href="#">Esqueci minha senha</a></div>
+        </div>
+
+        <div class="d-grid">
+        <button type="submit" class="btn btn-login">Entrar</button>
+        </div>
+        <h6>Caso você ainda não tenha uma conta, peça para um gestor realizar o seu cadastro </h6>
+    </form>
+    </div>
+</div>
+<!-- Direita: Imagem e mensagem --> 
+<div class="right-section">
+    <h1>Bem-vindo ao NeuroEduc</h1>
+    <p>Uma plataforma de avaliação de Desempenho educacional inovadora para potencializar o aprendizado.</p>
+    <img src="/static/img/login.png" alt="Ilustração de Login">
+    <p>Desenvolvido por: <strong>© WR Consultoria e Desenvolvimento 2025</strong></p>
+
+</div>
+</div>
+</div>
+</body>
+</html>
